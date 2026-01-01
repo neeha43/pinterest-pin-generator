@@ -1,17 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LandingPage from './components/LandingPage';
 import Generator from './components/Generator';
 import ResultsPage from './components/ResultsPage';
-import { WizardAnswers, PinResult, ViewState } from './types';
+import AuthPage from './components/AuthPage';
+import Dashboard from './components/Dashboard';
+import { WizardAnswers, PinResult, ViewState, User } from './types';
 import { generatePinCopy, generatePinImage } from './services/geminiService';
+import { storageService } from './services/storageService';
 import { Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>('landing');
+  const [view, setView] = useState<ViewState>('auth'); // Start at Auth
+  const [user, setUser] = useState<User | null>(null);
   const [results, setResults] = useState<PinResult[]>([]);
+  const [savedPins, setSavedPins] = useState<PinResult[]>([]);
   const [answers, setAnswers] = useState<WizardAnswers | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check for existing session
+    const currentUser = storageService.getCurrentUser();
+    if (currentUser) {
+      setUser(currentUser);
+      setSavedPins(storageService.getPins(currentUser.id));
+      setView('landing');
+    } else {
+      setView('auth');
+    }
+  }, []);
+
+  const handleLogin = (email: string) => {
+    const loggedInUser = storageService.login(email);
+    setUser(loggedInUser);
+    setSavedPins(storageService.getPins(loggedInUser.id));
+    setView('landing');
+  };
+
+  const handleLogout = () => {
+    storageService.logout();
+    setUser(null);
+    setResults([]);
+    setSavedPins([]);
+    setView('auth');
+  };
 
   const handleStart = () => {
     setView('generator');
@@ -19,6 +51,7 @@ const App: React.FC = () => {
   };
 
   const handleGeneratorComplete = async (collectedAnswers: WizardAnswers) => {
+    if (!user) return; // Should not happen given flow
     setAnswers(collectedAnswers);
     setIsGenerating(true);
     setError(null);
@@ -34,13 +67,18 @@ const App: React.FC = () => {
         ...data,
         id: `pin-${Date.now()}-${index}`,
         base64Image: undefined,
-        isGeneratingImage: false
+        isGeneratingImage: false,
+        createdAt: Date.now()
       }));
 
       setResults(initialResults);
       setIsGenerating(false);
 
-      // 2. Automatically kick off image generation for the first result to delight user
+      // Save immediately to history
+      storageService.savePins(user.id, initialResults);
+      setSavedPins(storageService.getPins(user.id));
+
+      // 2. Automatically kick off image generation for the first result
       if (initialResults.length > 0) {
         handleGenerateImage(initialResults[0].id, collectedAnswers, initialResults[0]);
       }
@@ -49,26 +87,30 @@ const App: React.FC = () => {
       console.error(err);
       setError("Failed to generate pins. Please try again.");
       setIsGenerating(false);
-      setView('generator'); // Go back on error
+      setView('generator');
     }
   };
 
   const handleGenerateImage = async (id: string, currentAnswers: WizardAnswers | null, pin?: PinResult) => {
-    if (!currentAnswers) return;
+    if (!currentAnswers || !user) return;
 
-    // Find pin if not provided
     const targetPin = pin || results.find(r => r.id === id);
     if (!targetPin) return;
 
-    // Set loading state for this specific pin image
     setResults(prev => prev.map(p => p.id === id ? { ...p, isGeneratingImage: true } : p));
 
     try {
       const base64 = await generatePinImage(currentAnswers, targetPin);
+      
+      // Update local view state
       setResults(prev => prev.map(p => p.id === id ? { ...p, base64Image: base64, isGeneratingImage: false } : p));
+      
+      // Update persistent storage
+      storageService.updatePinImage(user.id, id, base64);
+      setSavedPins(storageService.getPins(user.id));
+      
     } catch (err) {
       console.error(err);
-      // Reset loading state
       setResults(prev => prev.map(p => p.id === id ? { ...p, isGeneratingImage: false } : p));
     }
   };
@@ -79,8 +121,30 @@ const App: React.FC = () => {
     setView('landing');
   };
 
+  if (view === 'auth') {
+    return <AuthPage onLogin={handleLogin} />;
+  }
+
+  if (view === 'dashboard' && user) {
+    return (
+      <Dashboard 
+        user={user} 
+        pins={savedPins} 
+        onCreateNew={handleStart} 
+        onLogout={handleLogout} 
+      />
+    );
+  }
+
   if (view === 'landing') {
-    return <LandingPage onStart={handleStart} />;
+    return (
+      <LandingPage 
+        onStart={handleStart} 
+        user={user} 
+        onGoToDashboard={() => setView('dashboard')}
+        onLogout={handleLogout}
+      />
+    );
   }
 
   if (view === 'generator') {

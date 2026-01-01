@@ -33,6 +33,13 @@ export interface PinResult {
   tag_keywords: string[];
   base64Image?: string;
   isGeneratingImage: boolean;
+  createdAt?: number;
 }
 
-export type ViewState = 'landing' | 'generator' | 'results';
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export type ViewState = 'auth' | 'landing' | 'generator' | 'results' | 'dashboard';

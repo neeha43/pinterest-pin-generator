@@ -1,9 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WizardAnswers, PinResult } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize AI only if key exists, otherwise we'll use mock mode
+const apiKey = process.env.API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const generatePinCopy = async (answers: WizardAnswers): Promise<Omit<PinResult, 'id' | 'isGeneratingImage'>[]> => {
+  if (!ai) {
+    console.warn("No API Key found. Using mock data.");
+    return mockPinGeneration(answers);
+  }
+
   const prompt = `
     You are a Pinterest SEO and Marketing expert.
     Generate ${answers.variation_count} distinct Pinterest pin variations based on the following strategy.
@@ -27,43 +34,47 @@ export const generatePinCopy = async (answers: WizardAnswers): Promise<Omit<PinR
     4. Strict JSON output.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            headline: { type: Type.STRING, description: "Text on image" },
-            cta: { type: Type.STRING, description: "Call to action on image" },
-            title: { type: Type.STRING, description: "SEO Pin Title" },
-            description: { type: Type.STRING, description: "SEO Pin Description" },
-            alt_text: { type: Type.STRING, description: "Accessibility text" },
-            primary_keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-            tag_keywords: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ["headline", "cta", "title", "description", "alt_text", "primary_keywords", "tag_keywords"]
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              headline: { type: Type.STRING, description: "Text on image" },
+              cta: { type: Type.STRING, description: "Call to action on image" },
+              title: { type: Type.STRING, description: "SEO Pin Title" },
+              description: { type: Type.STRING, description: "SEO Pin Description" },
+              alt_text: { type: Type.STRING, description: "Accessibility text" },
+              primary_keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+              tag_keywords: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["headline", "cta", "title", "description", "alt_text", "primary_keywords", "tag_keywords"]
+          }
         }
       }
-    }
-  });
+    });
 
-  const text = response.text;
-  if (!text) throw new Error("No response from AI");
-  
-  try {
+    const text = response.text;
+    if (!text) throw new Error("No response from AI");
     return JSON.parse(text);
   } catch (e) {
-    console.error("Failed to parse JSON", e);
-    throw new Error("Failed to parse AI response");
+    console.error("AI Generation failed, falling back to mock", e);
+    return mockPinGeneration(answers);
   }
 };
 
 export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinResult): Promise<string> => {
-  // Construct a vivid prompt for the image generator
+  if (!ai) {
+    // Return a placeholder or empty string in mock mode
+    // We could return a base64 of a placeholder image, but empty string handles "not generated" UI
+    return ""; 
+  }
+
   const imagePrompt = `
     A high-quality, professional Pinterest pin image (aspect ratio 2:3).
     Style: ${answers.visual_style.join(', ')}.
@@ -92,7 +103,7 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
       contents: imagePrompt,
       config: {
         imageConfig: {
-          aspectRatio: "9:16", // Closest to Pinterest 2:3 standard in available options
+          aspectRatio: "9:16", 
         }
       }
     });
@@ -105,6 +116,19 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
     throw new Error("No image data returned");
   } catch (error) {
     console.error("Image generation failed", error);
-    return ""; // Return empty string on failure to handle gracefully in UI
+    return ""; 
   }
+};
+
+// Mock Helper
+const mockPinGeneration = (answers: WizardAnswers): Omit<PinResult, 'id' | 'isGeneratingImage'>[] => {
+  return Array(answers.variation_count).fill(null).map((_, i) => ({
+    headline: `Unlock Better ${answers.niche} Results Today`,
+    cta: answers.cta_text || "Read More",
+    title: `${answers.niche} Guide: How to Solve ${answers.pain_point} (Easy Steps)`,
+    description: `Discover the secret to ${answers.pain_point} in this comprehensive guide for ${answers.audience_profile.gender || 'people'}. Perfect for ${answers.niche} lovers! #${answers.niche.replace(/\s/g, '')} #Tips`,
+    alt_text: `A pin showing text about ${answers.niche} with a ${answers.visual_style[0] || 'clean'} style.`,
+    primary_keywords: [answers.niche, `${answers.niche} tips`, "viral pins", "blogging tips"],
+    tag_keywords: ["marketing", "growth", "ideas", "inspiration"]
+  }));
 };

@@ -1,15 +1,38 @@
 import React from 'react';
-import { ArrowRight, ShoppingBag, Users, Video, Link as LinkIcon, Briefcase } from 'lucide-react';
+import { ArrowRight, ShoppingBag, Users, Video, Link as LinkIcon, Briefcase, LayoutDashboard } from 'lucide-react';
+import { User } from '../types';
 
 interface LandingPageProps {
   onStart: () => void;
+  user: User | null;
+  onGoToDashboard: () => void;
+  onLogout: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onStart, user, onGoToDashboard, onLogout }) => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
+       {/* Simple Nav */}
+       <div className="px-6 py-4 flex justify-between items-center max-w-7xl mx-auto w-full">
+          <div className="font-bold text-xl tracking-tight">PinGenie</div>
+          <div className="flex items-center gap-4">
+            {user ? (
+               <>
+                 <button onClick={onGoToDashboard} className="text-sm font-medium text-slate-600 hover:text-slate-900">
+                    My Dashboard
+                 </button>
+                 <button onClick={onLogout} className="text-sm font-medium text-red-600 hover:text-red-700">
+                    Log out
+                 </button>
+               </>
+            ) : (
+              <span className="text-sm text-slate-400">Sign in to save pins</span>
+            )}
+          </div>
+       </div>
+
       {/* Hero Section */}
-      <header className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-20 text-center max-w-5xl mx-auto">
+      <header className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-10 text-center max-w-5xl mx-auto">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-sm font-medium mb-8">
           <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
           New: AI-Powered Visuals Included
@@ -23,13 +46,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
           Answer a few simple questions. Get SEO-optimized titles, descriptions, and scroll-stopping pin images instantly.
         </p>
 
-        <button 
-          onClick={onStart}
-          className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white transition-all duration-200 bg-red-600 rounded-full hover:bg-red-700 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600"
-        >
-          Generate Pinterest Pins Free
-          <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4">
+            <button 
+            onClick={onStart}
+            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white transition-all duration-200 bg-red-600 rounded-full hover:bg-red-700 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600"
+            >
+            Generate Pinterest Pins Free
+            <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+            {user && (
+                <button 
+                  onClick={onGoToDashboard}
+                  className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-slate-700 bg-slate-100 rounded-full hover:bg-slate-200 transition-all"
+                >
+                  <LayoutDashboard className="mr-2 w-5 h-5" />
+                  Go to Dashboard
+                </button>
+            )}
+        </div>
 
         <div className="mt-8 text-sm font-medium text-slate-500">
           Works for blogs, products, coaches, creators & businesses
