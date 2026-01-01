@@ -132,6 +132,14 @@ const PinCard: React.FC<{ pin: PinResult; index: number; onGenerateImage: () => 
               isCopied={copiedSection === 'desc'}
               isLong
             />
+
+            <CopyBlock 
+              label="♿ Alt Text" 
+              content={pin.alt_text} 
+              onCopy={() => copyToClipboard(pin.alt_text, 'alt_text')} 
+              isCopied={copiedSection === 'alt_text'}
+              isLong
+            />
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <CopyBlock 
