@@ -3,8 +3,9 @@ import LandingPage from './components/LandingPage';
 import Generator from './components/Generator';
 import ResultsPage from './components/ResultsPage';
 import AuthPage from './components/AuthPage';
-import Dashboard from './components/Dashboard';
-import { WizardAnswers, PinResult, ViewState, User } from './types';
+import History from './components/Dashboard'; // Reuse existing file for History
+import { Navigation } from './components/Navigation';
+import { WizardAnswers, PinResult, ViewState, User, GeneratedImage } from './types';
 import { generatePinCopy, generatePinImage } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { Loader2 } from 'lucide-react';
@@ -14,9 +15,13 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [results, setResults] = useState<PinResult[]>([]);
   const [savedPins, setSavedPins] = useState<PinResult[]>([]);
+  const [savedImages, setSavedImages] = useState<GeneratedImage[]>([]);
   const [answers, setAnswers] = useState<WizardAnswers | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Navigation State
+  const [activeTab, setActiveTab] = useState<'images' | 'pins' | 'history'>('images');
 
   useEffect(() => {
     // Check for existing session
@@ -24,6 +29,7 @@ const App: React.FC = () => {
     if (currentUser) {
       setUser(currentUser);
       setSavedPins(storageService.getPins(currentUser.id));
+      setSavedImages(storageService.getImages(currentUser.id));
       setView('landing');
     } else {
       setView('auth');
@@ -34,6 +40,7 @@ const App: React.FC = () => {
     const loggedInUser = storageService.login(email);
     setUser(loggedInUser);
     setSavedPins(storageService.getPins(loggedInUser.id));
+    setSavedImages(storageService.getImages(loggedInUser.id));
     setView('landing');
   };
 
@@ -42,12 +49,20 @@ const App: React.FC = () => {
     setUser(null);
     setResults([]);
     setSavedPins([]);
+    setSavedImages([]);
     setView('auth');
+    setActiveTab('images');
   };
 
   const handleStart = () => {
     setView('generator');
     setError(null);
+  };
+
+  const handleImageSaved = () => {
+    if (user) {
+      setSavedImages(storageService.getImages(user.id));
+    }
   };
 
   const handleGeneratorComplete = async (collectedAnswers: WizardAnswers) => {
@@ -121,66 +136,89 @@ const App: React.FC = () => {
     setView('landing');
   };
 
+  const handleTabChange = (tab: 'images' | 'pins' | 'history') => {
+    setActiveTab(tab);
+    if (tab === 'history') {
+      setView('history');
+    } else {
+      // Reset view to landing for the tool
+      setView('landing');
+    }
+  };
+
   if (view === 'auth') {
     return <AuthPage onLogin={handleLogin} />;
   }
 
-  if (view === 'dashboard' && user) {
-    return (
-      <Dashboard 
-        user={user} 
-        pins={savedPins} 
-        onCreateNew={handleStart} 
-        onLogout={handleLogout} 
-      />
-    );
-  }
+  // Persistent Layout for all authenticated views
+  return (
+    <div className="flex min-h-screen bg-slate-50">
+       <Navigation 
+          activeTab={activeTab} 
+          onTabChange={handleTabChange} 
+          user={user} 
+          onLogout={handleLogout} 
+       />
+       
+       {/* Main Content Area */}
+       <main className="flex-1 flex flex-col md:overflow-hidden h-screen pt-14 md:pt-0 bg-slate-50">
+          <div className="flex-1 overflow-y-auto">
+            {/* Global Loader Overlay */}
+            {isGenerating && (
+              <div className="fixed inset-0 z-50 bg-white/90 flex flex-col items-center justify-center p-4 text-center">
+                <Loader2 className="w-12 h-12 text-red-600 animate-spin mb-4" />
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Creating your Pins...</h2>
+                <p className="text-slate-500 max-w-md">Our AI is analyzing your niche, optimizing keywords, and designing layouts.</p>
+              </div>
+            )}
+            
+            {/* Global Error Overlay */}
+            {error && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl shadow-lg" role="alert">
+                  <span className="block sm:inline mr-8">{error}</span>
+                  <button className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => setError(null)}>
+                    <span className="text-xl">&times;</span>
+                  </button>
+                </div>
+            )}
 
-  if (view === 'landing') {
-    return (
-      <LandingPage 
-        onStart={handleStart} 
-        user={user} 
-        onGoToDashboard={() => setView('dashboard')}
-        onLogout={handleLogout}
-      />
-    );
-  }
+            {/* Views */}
+            {view === 'history' && user && (
+               <History 
+                  user={user} 
+                  pins={savedPins} 
+                  images={savedImages}
+                  onCreateNew={(tab) => handleTabChange(tab)} 
+                  onLogout={handleLogout} 
+               />
+            )}
 
-  if (view === 'generator') {
-    return (
-      <>
-        {isGenerating && (
-          <div className="fixed inset-0 z-50 bg-white/90 flex flex-col items-center justify-center p-4 text-center">
-            <Loader2 className="w-12 h-12 text-red-600 animate-spin mb-4" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Creating your Pins...</h2>
-            <p className="text-slate-500 max-w-md">Our AI is analyzing your niche, optimizing keywords, and designing layouts.</p>
+            {view === 'landing' && (
+              <div className="p-4 md:p-6 min-h-full">
+                <LandingPage 
+                  onStart={handleStart} 
+                  user={user} 
+                  onImageSaved={handleImageSaved}
+                  activeTab={activeTab === 'history' ? 'images' : activeTab} // Fallback
+                />
+              </div>
+            )}
+
+            {view === 'generator' && (
+              <Generator onComplete={handleGeneratorComplete} onBack={() => setView('landing')} />
+            )}
+
+            {view === 'results' && (
+              <ResultsPage 
+                results={results} 
+                onGenerateImage={(id) => handleGenerateImage(id, answers)} 
+                onReset={handleReset} 
+              />
+            )}
           </div>
-        )}
-         {error && (
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-              <span className="block sm:inline">{error}</span>
-              <button className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => setError(null)}>
-                <span className="text-xl">&times;</span>
-              </button>
-            </div>
-          )}
-        <Generator onComplete={handleGeneratorComplete} onBack={() => setView('landing')} />
-      </>
-    );
-  }
-
-  if (view === 'results') {
-    return (
-      <ResultsPage 
-        results={results} 
-        onGenerateImage={(id) => handleGenerateImage(id, answers)} 
-        onReset={handleReset} 
-      />
-    );
-  }
-
-  return null;
+       </main>
+    </div>
+  );
 };
 
 export default App;

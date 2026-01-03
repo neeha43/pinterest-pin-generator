@@ -36,10 +36,30 @@ export interface PinResult {
   createdAt?: number;
 }
 
+export interface GeneratedImage {
+  id: string;
+  base64: string;
+  prompt: string;
+  style: string;
+  model: string;
+  createdAt: number;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
 }
 
-export type ViewState = 'auth' | 'landing' | 'generator' | 'results' | 'dashboard';
+export type ViewState = 'auth' | 'landing' | 'generator' | 'results' | 'history';
+
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}

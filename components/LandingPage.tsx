@@ -1,114 +1,87 @@
 import React from 'react';
-import { ArrowRight, ShoppingBag, Users, Video, Link as LinkIcon, Briefcase, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, Sparkles, FileText, Palette, Target } from 'lucide-react';
+import ImageGenerator from './ImageGenerator';
 import { User } from '../types';
 
 interface LandingPageProps {
   onStart: () => void;
   user: User | null;
-  onGoToDashboard: () => void;
-  onLogout: () => void;
+  onImageSaved?: () => void;
+  activeTab: 'pins' | 'images';
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onStart, user, onGoToDashboard, onLogout }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onStart, user, onImageSaved, activeTab }) => {
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-       {/* Simple Nav */}
-       <div className="px-6 py-4 flex justify-between items-center max-w-7xl mx-auto w-full">
-          <div className="font-bold text-xl tracking-tight">PinGenie</div>
-          <div className="flex items-center gap-4">
-            {user ? (
-               <>
-                 <button onClick={onGoToDashboard} className="text-sm font-medium text-slate-600 hover:text-slate-900">
-                    My Dashboard
-                 </button>
-                 <button onClick={onLogout} className="text-sm font-medium text-red-600 hover:text-red-700">
-                    Log out
-                 </button>
-               </>
-            ) : (
-              <span className="text-sm text-slate-400">Sign in to save pins</span>
-            )}
-          </div>
-       </div>
-
-      {/* Hero Section */}
-      <header className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-10 text-center max-w-5xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-sm font-medium mb-8">
-          <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
-          New: AI-Powered Visuals Included
+    <div className="w-full max-w-5xl mx-auto">
+      {activeTab === 'images' ? (
+        <div className="max-w-4xl mx-auto w-full">
+          <ImageGenerator user={user} onImageSaved={onImageSaved} />
         </div>
-        
-        <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-6">
-          Create <span className="text-red-600">High-Click</span><br /> Pinterest Pins in Minutes
-        </h1>
-        
-        <p className="text-xl md:text-2xl text-slate-600 mb-10 max-w-3xl mx-auto leading-relaxed">
-          Answer a few simple questions. Get SEO-optimized titles, descriptions, and scroll-stopping pin images instantly.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-4">
-            <button 
-            onClick={onStart}
-            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white transition-all duration-200 bg-red-600 rounded-full hover:bg-red-700 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600"
-            >
-            Generate Pinterest Pins Free
-            <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            {user && (
-                <button 
-                  onClick={onGoToDashboard}
-                  className="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-slate-700 bg-slate-100 rounded-full hover:bg-slate-200 transition-all"
-                >
-                  <LayoutDashboard className="mr-2 w-5 h-5" />
-                  Go to Dashboard
-                </button>
-            )}
-        </div>
-
-        <div className="mt-8 text-sm font-medium text-slate-500">
-          Works for blogs, products, coaches, creators & businesses
-        </div>
-      </header>
-
-      {/* Social Proof / Use Cases */}
-      <section className="bg-slate-50 border-t border-slate-100 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 items-center justify-center opacity-70">
-            <div className="flex flex-col items-center gap-2">
-              <div className="p-3 bg-white rounded-xl shadow-sm">
-                <LinkIcon className="w-6 h-6 text-slate-700" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">Bloggers</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="p-3 bg-white rounded-xl shadow-sm">
-                <ShoppingBag className="w-6 h-6 text-slate-700" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">Online Stores</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="p-3 bg-white rounded-xl shadow-sm">
-                <Users className="w-6 h-6 text-slate-700" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">Coaches</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="p-3 bg-white rounded-xl shadow-sm">
-                <Video className="w-6 h-6 text-slate-700" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">YouTubers</span>
-            </div>
-             <div className="flex flex-col items-center gap-2">
-              <div className="p-3 bg-white rounded-xl shadow-sm">
-                <Briefcase className="w-6 h-6 text-slate-700" />
-              </div>
-              <span className="text-sm font-semibold text-slate-600">Marketers</span>
-            </div>
-          </div>
-        </div>
-      </section>
+      ) : (
+        <PinterestToolView onStart={onStart} />
+      )}
     </div>
   );
 };
+
+const PinterestToolView: React.FC<{ onStart: () => void }> = ({ onStart }) => (
+  <div className="flex flex-col items-center justify-center w-full animate-in fade-in duration-500 py-8">
+      <div className="text-center mb-6 shrink-0">
+        <h2 className="text-3xl font-bold text-slate-900 mb-2">Pinterest Pin Generator</h2>
+        <p className="text-slate-500">Create SEO-optimized, high-converting pins for your content.</p>
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 text-center w-full shrink-0">
+          <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+             <Sparkles className="w-8 h-8" />
+          </div>
+          
+          <h3 className="text-xl font-bold text-slate-900 mb-2">Start a New Pin Project</h3>
+          <p className="text-slate-600 max-w-lg mx-auto mb-8 text-sm">
+             Our AI wizard will guide you through a quick process to define your goal, audience, and style. We'll generate optimized titles, descriptions, and custom visuals tailored to your niche.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto mb-8 text-left">
+             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-2">
+                <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center text-red-600 shadow-sm">
+                   <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 text-sm">1. Strategy</div>
+                  <p className="text-xs text-slate-500 mt-0.5">Define your goals, niche, and target audience.</p>
+                </div>
+             </div>
+             
+             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-2">
+                <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center text-red-600 shadow-sm">
+                   <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                   <div className="font-semibold text-slate-900 text-sm">2. Copy</div>
+                   <p className="text-xs text-slate-500 mt-0.5">Get SEO-optimized titles and description copy.</p>
+                </div>
+             </div>
+             
+             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-2">
+                <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center text-red-600 shadow-sm">
+                   <Palette className="w-4 h-4" />
+                </div>
+                <div>
+                   <div className="font-semibold text-slate-900 text-sm">3. Visuals</div>
+                   <p className="text-xs text-slate-500 mt-0.5">Generate custom, scroll-stopping AI images.</p>
+                </div>
+             </div>
+          </div>
+
+          <button 
+            onClick={onStart}
+            className="inline-flex items-center justify-center px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all group"
+          >
+            Create New Pin
+            <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </button>
+      </div>
+  </div>
+);
 
 export default LandingPage;

@@ -10,7 +10,7 @@ interface ResultsPageProps {
 
 const ResultsPage: React.FC<ResultsPageProps> = ({ results, onGenerateImage, onReset }) => {
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 min-h-full">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
            <div>

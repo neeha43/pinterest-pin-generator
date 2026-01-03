@@ -19,11 +19,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
     <div className="min-h-screen bg-white flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-red-600 text-white mb-6 shadow-xl shadow-red-200">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-orange-600 text-white mb-6 shadow-xl shadow-red-200">
             <Sparkles className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Welcome to PinGenie</h1>
-          <p className="text-slate-500">Sign in to save your pins and access your history.</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Welcome to Aesthrya</h1>
+          <p className="text-slate-500">Your AI creative suite. Sign in to save your designs and manage your projects.</p>
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8">

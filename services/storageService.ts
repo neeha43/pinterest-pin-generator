@@ -1,8 +1,9 @@
-import { User, PinResult } from '../types';
+import { User, PinResult, GeneratedImage } from '../types';
 
 const STORAGE_KEYS = {
   USER: 'pingenie_user',
-  PINS: 'pingenie_pins'
+  PINS: 'pingenie_pins',
+  IMAGES: 'pingenie_images'
 };
 
 export const storageService = {
@@ -33,8 +34,6 @@ export const storageService = {
     const pinsToSave = pins.map(p => ({ ...p, createdAt: Date.now() }));
     const updatedPins = [...pinsToSave, ...existingPins];
     
-    // In a real app, we'd store by User ID. For local storage demo, we'll prefix keys or just store all if single user per browser.
-    // Let's scope by user ID for "correctness" simulation.
     localStorage.setItem(`${STORAGE_KEYS.PINS}_${userId}`, JSON.stringify(updatedPins));
   },
 
@@ -47,5 +46,17 @@ export const storageService = {
     const pins = storageService.getPins(userId);
     const updated = pins.map(p => p.id === pinId ? { ...p, base64Image, isGeneratingImage: false } : p);
     localStorage.setItem(`${STORAGE_KEYS.PINS}_${userId}`, JSON.stringify(updated));
+  },
+
+  // Standalone Image Storage
+  saveImage: (userId: string, image: GeneratedImage) => {
+    const existingImages = storageService.getImages(userId);
+    const updatedImages = [image, ...existingImages];
+    localStorage.setItem(`${STORAGE_KEYS.IMAGES}_${userId}`, JSON.stringify(updatedImages));
+  },
+
+  getImages: (userId: string): GeneratedImage[] => {
+    const stored = localStorage.getItem(`${STORAGE_KEYS.IMAGES}_${userId}`);
+    return stored ? JSON.parse(stored) : [];
   }
 };

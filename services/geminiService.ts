@@ -1,11 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WizardAnswers, PinResult } from "../types";
 
-// Initialize AI only if key exists, otherwise we'll use mock mode
-const apiKey = process.env.API_KEY;
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Helper to get a fresh client instance. 
+// Important: process.env.API_KEY might change if the user selects a new key via window.aistudio
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+};
 
 export const generatePinCopy = async (answers: WizardAnswers): Promise<Omit<PinResult, 'id' | 'isGeneratingImage'>[]> => {
+  const ai = getAiClient();
   if (!ai) {
     console.warn("No API Key found. Using mock data.");
     return mockPinGeneration(answers);
@@ -69,11 +74,8 @@ export const generatePinCopy = async (answers: WizardAnswers): Promise<Omit<PinR
 };
 
 export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinResult): Promise<string> => {
-  if (!ai) {
-    // Return a placeholder or empty string in mock mode
-    // We could return a base64 of a placeholder image, but empty string handles "not generated" UI
-    return ""; 
-  }
+  const ai = getAiClient();
+  if (!ai) return "";
 
   const imagePrompt = `
     A high-quality, professional Pinterest pin image (aspect ratio 2:3).
@@ -117,6 +119,40 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
   } catch (error) {
     console.error("Image generation failed", error);
     return ""; 
+  }
+};
+
+export const generateImageFromPrompt = async (prompt: string, style: string, model: string): Promise<string> => {
+  const ai = getAiClient();
+  if (!ai) {
+    // Mock response for testing without API Key
+    return "";
+  }
+
+  const finalPrompt = style && style !== 'None' 
+    ? `Create a ${style} style image. ${prompt}`
+    : prompt;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: finalPrompt,
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1", // Square for generic generation
+        }
+      }
+    });
+
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return part.inlineData.data;
+      }
+    }
+    throw new Error("No image data returned");
+  } catch (error) {
+    console.error("Standalone image generation failed", error);
+    throw error;
   }
 };
 
