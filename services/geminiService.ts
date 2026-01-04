@@ -217,10 +217,14 @@ export const generateImageFromPrompt = async (
     return "";
   }
 
-  // Enforce strict image generation to avoid chatty responses
-  const finalPrompt = style && style !== 'None' 
-    ? `Generate an image. Style: ${style}. Content: ${prompt}. \n\nIMPORTANT: Return only the image. Do not include any conversational text or descriptions.`
-    : `Generate an image. Content: ${prompt}. \n\nIMPORTANT: Return only the image. Do not include any conversational text or descriptions.`;
+  // Simplified prompt construction
+  // We avoid conversational framing like "Generate an image" which might confuse the model into chat mode
+  let finalPrompt = prompt;
+  if (style && style !== 'None') {
+      finalPrompt = `${style} style. ${prompt}`;
+  }
+  // Strong negative instruction against text, appended as a requirement
+  finalPrompt += "\n\nRequirement: Return an image only. Do not generate any text response.";
 
   try {
     // Branch based on model type
@@ -283,7 +287,7 @@ export const generateImageFromPrompt = async (
             throw new Error(`Model returned text instead of image: "${textParts.substring(0, 100)}..."`);
         }
         
-        throw new Error("No image data returned from API");
+        throw new Error(`No image data returned from API (Finish Reason: ${candidate.finishReason})`);
     }
 
   } catch (error) {
