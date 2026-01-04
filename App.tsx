@@ -24,23 +24,43 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'images' | 'pins' | 'history'>('images');
 
   useEffect(() => {
-    // Check for existing session
-    const currentUser = storageService.getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-      setSavedPins(storageService.getPins(currentUser.id));
-      setSavedImages(storageService.getImages(currentUser.id));
-      setView('landing');
-    } else {
-      setView('auth');
-    }
+    // Check for existing session and load data asynchronously
+    const initSession = async () => {
+      const currentUser = storageService.getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
+        try {
+          const [pins, images] = await Promise.all([
+             storageService.getPins(currentUser.id),
+             storageService.getImages(currentUser.id)
+          ]);
+          setSavedPins(pins);
+          setSavedImages(images);
+          setView('landing');
+        } catch (e) {
+          console.error("Failed to load user data", e);
+          setView('landing'); // Proceed anyway
+        }
+      } else {
+        setView('auth');
+      }
+    };
+    initSession();
   }, []);
 
-  const handleLogin = (email: string) => {
+  const handleLogin = async (email: string) => {
     const loggedInUser = storageService.login(email);
     setUser(loggedInUser);
-    setSavedPins(storageService.getPins(loggedInUser.id));
-    setSavedImages(storageService.getImages(loggedInUser.id));
+    try {
+      const [pins, images] = await Promise.all([
+          storageService.getPins(loggedInUser.id),
+          storageService.getImages(loggedInUser.id)
+      ]);
+      setSavedPins(pins);
+      setSavedImages(images);
+    } catch (e) {
+      console.error("Error loading data", e);
+    }
     setView('landing');
   };
 
@@ -59,9 +79,10 @@ const App: React.FC = () => {
     setError(null);
   };
 
-  const handleImageSaved = () => {
+  const handleImageSaved = async () => {
     if (user) {
-      setSavedImages(storageService.getImages(user.id));
+      const images = await storageService.getImages(user.id);
+      setSavedImages(images);
     }
   };
 
@@ -90,8 +111,9 @@ const App: React.FC = () => {
       setIsGenerating(false);
 
       // Save immediately to history
-      storageService.savePins(user.id, initialResults);
-      setSavedPins(storageService.getPins(user.id));
+      await storageService.savePins(user.id, initialResults);
+      const updatedPins = await storageService.getPins(user.id);
+      setSavedPins(updatedPins);
 
       // 2. Automatically kick off image generation for the first result
       if (initialResults.length > 0) {
@@ -121,8 +143,9 @@ const App: React.FC = () => {
       setResults(prev => prev.map(p => p.id === id ? { ...p, base64Image: base64, isGeneratingImage: false } : p));
       
       // Update persistent storage
-      storageService.updatePinImage(user.id, id, base64);
-      setSavedPins(storageService.getPins(user.id));
+      await storageService.updatePinImage(user.id, id, base64);
+      const updatedPins = await storageService.getPins(user.id);
+      setSavedPins(updatedPins);
       
     } catch (err) {
       console.error(err);

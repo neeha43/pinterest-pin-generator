@@ -42,6 +42,7 @@ export interface GeneratedImage {
   prompt: string;
   style: string;
   model: string;
+  seed?: number;
   createdAt: number;
 }
 

@@ -102,7 +102,7 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: imagePrompt,
+      contents: { parts: [{ text: imagePrompt }] },
       config: {
         imageConfig: {
           aspectRatio: "9:16", 
@@ -111,10 +111,17 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
+      if (part.inlineData && part.inlineData.data) {
         return part.inlineData.data;
       }
     }
+    
+    // Check for text refusal
+    const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text);
+    if (textPart?.text) {
+       console.warn("Image generation returned text instead of image:", textPart.text);
+    }
+
     throw new Error("No image data returned");
   } catch (error) {
     console.error("Image generation failed", error);
@@ -122,7 +129,7 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
   }
 };
 
-export const generateImageFromPrompt = async (prompt: string, style: string, model: string): Promise<string> => {
+export const generateImageFromPrompt = async (prompt: string, style: string, model: string, seed?: number): Promise<string> => {
   const ai = getAiClient();
   if (!ai) {
     // Mock response for testing without API Key
@@ -134,22 +141,58 @@ export const generateImageFromPrompt = async (prompt: string, style: string, mod
     : prompt;
 
   try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: finalPrompt,
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1", // Square for generic generation
-        }
-      }
-    });
+    // Branch based on model type
+    if (model.startsWith('imagen')) {
+       // Imagen Model Logic
+       const response = await ai.models.generateImages({
+          model: model,
+          prompt: finalPrompt,
+          config: {
+            numberOfImages: 1,
+            outputMimeType: 'image/png',
+            aspectRatio: '1:1',
+          },
+       });
+       
+       const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+       if (imageBytes) {
+          return imageBytes;
+       }
+       throw new Error("No image data returned from Imagen model");
+       
+    } else {
+       // Gemini Model Logic
+       const response = await ai.models.generateContent({
+          model: model,
+          contents: { parts: [{ text: finalPrompt }] },
+          config: {
+            imageConfig: {
+              aspectRatio: "1:1",
+            },
+            seed: seed
+          }
+        });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return part.inlineData.data;
-      }
+        if (!response.candidates || response.candidates.length === 0) {
+            throw new Error("No candidates returned. The request might have been blocked or the model is overloaded.");
+        }
+
+        const parts = response.candidates[0].content?.parts || [];
+
+        for (const part of parts) {
+          if (part.inlineData && part.inlineData.data) {
+            return part.inlineData.data;
+          }
+        }
+
+        const textParts = parts.filter(p => p.text).map(p => p.text).join(' ');
+        if (textParts) {
+            throw new Error(`Model returned text instead of image: "${textParts.substring(0, 100)}..."`);
+        }
+        
+        throw new Error("No image data returned from API");
     }
-    throw new Error("No image data returned");
+
   } catch (error) {
     console.error("Standalone image generation failed", error);
     throw error;
