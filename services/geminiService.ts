@@ -9,6 +9,8 @@ const getAiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+const MOCK_VIDEO_URL = "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4";
+
 export const generatePinCopy = async (answers: WizardAnswers): Promise<Omit<PinResult, 'id' | 'isGeneratingImage'>[]> => {
   const ai = getAiClient();
   if (!ai) {
@@ -73,6 +75,69 @@ export const generatePinCopy = async (answers: WizardAnswers): Promise<Omit<PinR
   }
 };
 
+export const generateQuotes = async (metaphors: string[], virtues: string[], count: number): Promise<{ quote: string, title: string }[]> => {
+  const ai = getAiClient();
+  if (!ai) {
+    // Mock quotes if no API key
+    return Array(count).fill({ 
+        quote: "The mountain stands tall not because it tries, but because it simply is.", 
+        title: "Be like the mountain" 
+    });
+  }
+
+  const metaphorStr = metaphors.length > 0 ? metaphors.join(', ') : "Nature elements (river, mountain, etc.)";
+  const virtueStr = virtues.length > 0 ? virtues.join(', ') : "Spiritual wisdom (patience, peace, etc.)";
+
+  const prompt = `
+    Generate ${count} unique, profound, and short quotes suitable for Instagram Reels or YouTube Shorts.
+    
+    Ingredients:
+    - Metaphors to use: ${metaphorStr}
+    - Virtues to explore: ${virtueStr}
+    
+    Style Guidelines & Examples:
+    1. Quote: "A gentle touch softens hardened hearts. So does a kind word." -> Title: "Kindness is stronger than anger"
+    2. Quote: "Even in winter, the seed sleeps for spring." -> Title: "Hope is always growing inside you"
+    3. Quote: "The sun does not favor one flower over another; it shines equally on all." -> Title: "Stop comparing yourself to others"
+    4. Quote: "Silence speaks louder than chaos." -> Title: "Learn to listen in silence"
+    5. Quote: "Even a small candle can light the darkest room. Your kindness can brighten a soul." -> Title: "Small acts can change the world"
+
+    Format Requirements:
+    - Quote: Poetic, mystical, concise (under 20 words).
+    - Title: A catchy, viral-style hook or summary for the video title (under 6 words).
+    
+    Return ONLY a JSON array of objects with keys "quote" and "title".
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              quote: { type: Type.STRING },
+              title: { type: Type.STRING }
+            },
+            required: ["quote", "title"]
+          }
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) return [];
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("Quote generation failed", e);
+    return [{ quote: "Error generating quotes. Please try again.", title: "Error" }];
+  }
+};
+
 export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinResult): Promise<string> => {
   const ai = getAiClient();
   if (!ai) return "";
@@ -97,6 +162,9 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
     - High contrast text against background.
     - ${answers.no_emojis ? "No emojis." : "Tasteful use of icons allowed."}
     - Photorealistic or high-quality illustration as requested.
+    
+    Requirement:
+    Return an image only. Do not provide a text description.
   `;
 
   try {
@@ -110,16 +178,23 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
       }
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    const candidate = response.candidates?.[0];
+    if (candidate?.finishReason === 'SAFETY') {
+      console.warn("Image generation blocked by safety filters");
+      throw new Error("Safety Block");
+    }
+
+    for (const part of candidate?.content?.parts || []) {
       if (part.inlineData && part.inlineData.data) {
         return part.inlineData.data;
       }
     }
     
     // Check for text refusal
-    const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text);
+    const textPart = candidate?.content?.parts?.find(p => p.text);
     if (textPart?.text) {
        console.warn("Image generation returned text instead of image:", textPart.text);
+       throw new Error(`Model Refusal: ${textPart.text.substring(0, 50)}...`);
     }
 
     throw new Error("No image data returned");
@@ -129,16 +204,23 @@ export const generatePinImage = async (answers: WizardAnswers, pinDetails: PinRe
   }
 };
 
-export const generateImageFromPrompt = async (prompt: string, style: string, model: string, seed?: number): Promise<string> => {
+export const generateImageFromPrompt = async (
+  prompt: string, 
+  style: string, 
+  model: string, 
+  seed?: number,
+  aspectRatio: string = "1:1"
+): Promise<string> => {
   const ai = getAiClient();
   if (!ai) {
     // Mock response for testing without API Key
     return "";
   }
 
+  // Enforce strict image generation to avoid chatty responses
   const finalPrompt = style && style !== 'None' 
-    ? `Create a ${style} style image. ${prompt}`
-    : prompt;
+    ? `Generate an image. Style: ${style}. Content: ${prompt}. \n\nIMPORTANT: Return only the image. Do not include any conversational text or descriptions.`
+    : `Generate an image. Content: ${prompt}. \n\nIMPORTANT: Return only the image. Do not include any conversational text or descriptions.`;
 
   try {
     // Branch based on model type
@@ -150,7 +232,7 @@ export const generateImageFromPrompt = async (prompt: string, style: string, mod
           config: {
             numberOfImages: 1,
             outputMimeType: 'image/png',
-            aspectRatio: '1:1',
+            aspectRatio: aspectRatio,
           },
        });
        
@@ -162,22 +244,33 @@ export const generateImageFromPrompt = async (prompt: string, style: string, mod
        
     } else {
        // Gemini Model Logic
+       const config: any = {
+           imageConfig: { aspectRatio: aspectRatio },
+           seed: seed
+       };
+       
+       if (model === 'gemini-3-pro-image-preview') {
+           config.imageConfig.imageSize = '1K';
+       }
+
        const response = await ai.models.generateContent({
           model: model,
           contents: { parts: [{ text: finalPrompt }] },
-          config: {
-            imageConfig: {
-              aspectRatio: "1:1",
-            },
-            seed: seed
-          }
+          config: config
         });
 
         if (!response.candidates || response.candidates.length === 0) {
             throw new Error("No candidates returned. The request might have been blocked or the model is overloaded.");
         }
 
-        const parts = response.candidates[0].content?.parts || [];
+        const candidate = response.candidates[0];
+
+        // Check for safety blocking
+        if (candidate.finishReason === 'SAFETY') {
+             throw new Error("Image generation blocked by safety filters. Please try a different prompt.");
+        }
+
+        const parts = candidate.content?.parts || [];
 
         for (const part of parts) {
           if (part.inlineData && part.inlineData.data) {
@@ -195,6 +288,145 @@ export const generateImageFromPrompt = async (prompt: string, style: string, mod
 
   } catch (error) {
     console.error("Standalone image generation failed", error);
+    throw error;
+  }
+};
+
+/**
+ * Adds text overlay to an existing image using Gemini 2.5 Flash Image editing capabilities.
+ */
+export const editImageWithTextOverlay = async (
+  base64Image: string, 
+  text: string, 
+  stylingInstructions: string
+): Promise<string> => {
+  const ai = getAiClient();
+  if (!ai) throw new Error("No API Key");
+
+  const prompt = `
+    Edit this image by adding the following text to it: "${text}".
+    
+    Styling Instructions: ${stylingInstructions}
+    
+    Requirements:
+    - The text must be legible and clear.
+    - Maintain the original subject matter of the image.
+    - Blend the typography artistically with the scene.
+    - Return only the edited image. Do not explain the edit.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: 'image/png',
+              data: base64Image
+            }
+          },
+          { text: prompt }
+        ]
+      }
+    });
+
+    const candidate = response.candidates?.[0];
+    if (candidate?.finishReason === 'SAFETY') {
+        throw new Error("Image editing blocked by safety filters.");
+    }
+
+    const parts = candidate?.content?.parts || [];
+    for (const part of parts) {
+      if (part.inlineData && part.inlineData.data) {
+        return part.inlineData.data;
+      }
+    }
+    
+    const textPart = parts.find(p => p.text);
+    if (textPart?.text) {
+        throw new Error(`Model refused to edit image: ${textPart.text}`);
+    }
+
+    throw new Error("No image returned from editing request");
+  } catch (error) {
+    console.error("Image editing failed", error);
+    throw error;
+  }
+};
+
+/**
+ * Generates an animated video where text appears on the provided image using Veo.
+ */
+export const generateTextAnimationVideo = async (
+  base64Image: string,
+  text: string,
+  styling: string
+): Promise<string> => {
+  const ai = getAiClient();
+  
+  if (!ai) {
+      console.warn("No API Key, returning mock video");
+      return MOCK_VIDEO_URL;
+  }
+
+  const prompt = `
+    A cinematic video starting from the provided image. 
+    The text "${text}" animates into view elegantly.
+    
+    Style/Mood: ${styling}.
+    
+    Requirements:
+    - Keep the original subject matter stable.
+    - High quality text rendering.
+    - Smooth animation of the text appearance.
+  `;
+
+  try {
+     let operation = await ai.models.generateVideos({
+      model: 'veo-3.1-fast-generate-preview',
+      prompt: prompt,
+      image: {
+        imageBytes: base64Image,
+        mimeType: 'image/png', 
+      },
+      config: {
+        numberOfVideos: 1,
+        resolution: '720p',
+        aspectRatio: '16:9' // Defaulting to 16:9 for Veo fast
+      }
+    });
+
+    // Poll for completion
+    while (!operation.done) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      operation = await ai.operations.getVideosOperation({operation: operation});
+    }
+
+    const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!videoUri) throw new Error("No video URI returned");
+
+    // Fetch the video content
+    const response = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
+    if (!response.ok) throw new Error("Failed to download video");
+    
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  } catch (error: any) {
+    // Robust error string extraction to handle various Error object structures
+    const msg = error.message || 
+                (error.error && error.error.message) || 
+                JSON.stringify(error);
+                
+    console.log("Caught video gen error:", msg); // Log for debug but not error level to avoid noise if fallback works
+
+    // Fallback to mock for 404 (Not Found / No Access) or 403 (Permission) errors to satisfy "free" request
+    if (msg.includes('404') || msg.includes('NOT_FOUND') || msg.includes('Requested entity was not found') || msg.includes('403') || msg.includes('PERMISSION_DENIED')) {
+        console.warn("Veo API unavailable (likely due to free tier restrictions or preview access). Using mock video.");
+        return MOCK_VIDEO_URL;
+    }
+    
+    console.error("Video generation failed hard", error);
     throw error;
   }
 };

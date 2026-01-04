@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Download, Image as ImageIcon, Loader2, Settings2, Key, RefreshCw, Lock, Grid } from 'lucide-react';
+import { Sparkles, Download, Image as ImageIcon, Loader2, Settings2, Key, RefreshCw, Lock, Grid, Square, RectangleHorizontal, RectangleVertical, Maximize2, X } from 'lucide-react';
 import { generateImageFromPrompt } from '../services/geminiService';
 import { storageService } from '../services/storageService';
 import { User, GeneratedImage } from '../types';
@@ -24,6 +24,14 @@ const MODELS = [
   { id: 'gemini-3-pro-image-preview', name: 'Gemini 3.0 Pro (High Quality)' }
 ];
 
+const ASPECT_RATIOS = [
+  { label: 'Square', value: '1:1', icon: Square },
+  { label: 'Portrait', value: '3:4', icon: RectangleVertical },
+  { label: 'Landscape', value: '4:3', icon: RectangleHorizontal },
+  { label: 'Wide', value: '16:9', icon: RectangleHorizontal },
+  { label: 'Tall', value: '9:16', icon: RectangleVertical },
+];
+
 interface ImageGeneratorProps {
   user: User | null;
   onImageSaved?: () => void;
@@ -33,9 +41,13 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('None');
   const [model, setModel] = useState('gemini-2.5-flash-image');
+  const [aspectRatio, setAspectRatio] = useState('1:1');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<{base64: string, seed: number | undefined}[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Lightbox State
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   // Settings
   const [numberOfImages, setNumberOfImages] = useState(1);
@@ -101,7 +113,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
         const seed = baseSeed !== undefined ? baseSeed + i : undefined;
         
         try {
-          const base64 = await generateImageFromPrompt(prompt, style, model, seed);
+          const base64 = await generateImageFromPrompt(prompt, style, model, seed, aspectRatio);
           results.push({ base64, seed, success: true });
         } catch (e: any) {
           console.error(`Generation failed for image ${i + 1}`, e);
@@ -116,7 +128,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
 
         // Add a delay between requests if there are more to come, to respect rate limits
         if (i < numberOfImages - 1) {
-             await new Promise(resolve => setTimeout(resolve, 1500));
+             await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
@@ -146,22 +158,15 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
           if (onImageSaved) onImageSaved();
         }
         
-        // If some failed but some succeeded, warn user
-        if (successfulImages.length < numberOfImages) {
-             const failedCount = numberOfImages - successfulImages.length;
-             // Optional: Set a non-blocking warning or just log it. 
-             // We can use the error state but usually that hides results.
-             // For now, we show results.
-        }
-
       } else {
         // Look for specific errors in the failures
         const firstError: any = results.find(r => !r.success)?.error;
         let errorMessage = "Could not generate images.";
         
         if (firstError) {
-           // Parse potential error structures
+           // Parse potential error structures - check recursively or JSON string
            const errString = JSON.stringify(firstError);
+           // Handle object structure { error: { code, message, status } }
            const errMsg = firstError.message || firstError.error?.message || errString;
 
            if (errMsg.includes('403') || errMsg.includes('PERMISSION_DENIED')) {
@@ -174,6 +179,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
              }
            } else if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
              errorMessage = "Rate limit exceeded. Please wait a moment before trying again or reduce the number of images.";
+           } else if (errMsg.includes('safety') || errMsg.includes('SAFETY')) {
+             errorMessage = "Image generation blocked by safety filters. Please try a different prompt.";
            } else if (firstError.message) {
              errorMessage = firstError.message;
            }
@@ -195,6 +202,45 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxImage(null);
+            }}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <div 
+            className="relative max-w-7xl max-h-[90vh] flex flex-col items-center" 
+            onClick={e => e.stopPropagation()}
+          >
+            <img 
+              src={`data:image/png;base64,${lightboxImage}`} 
+              alt="Full screen" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            />
+             <div className="mt-4 flex gap-4">
+               <a 
+                 href={`data:image/png;base64,${lightboxImage}`} 
+                 download={`generated-image-${Date.now()}.png`}
+                 className="flex items-center gap-2 px-6 py-2.5 bg-white text-slate-900 rounded-full font-bold hover:bg-slate-100 transition-colors shadow-lg"
+               >
+                 <Download className="w-5 h-5" />
+                 Download Original
+               </a>
+             </div>
+          </div>
+        </div>
+      )}
+
       <div className="text-center">
         <h2 className="text-3xl font-bold text-slate-900 mb-2">AI Image Generator</h2>
         <p className="text-slate-500">Turn your ideas into visuals with a simple text prompt.</p>
@@ -237,6 +283,28 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
                 ))}
               </select>
             </div>
+          </div>
+
+           {/* Aspect Ratio Selection */}
+          <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Aspect Ratio</label>
+              <div className="grid grid-cols-5 gap-2">
+                {ASPECT_RATIOS.map(ratio => (
+                  <button
+                    key={ratio.value}
+                    onClick={() => setAspectRatio(ratio.value)}
+                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                      aspectRatio === ratio.value
+                      ? 'bg-red-50 border-red-500 text-red-700 ring-1 ring-red-500'
+                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <ratio.icon className={`w-5 h-5 mb-1 ${ratio.value === '16:9' ? 'rotate-0' : ratio.value === '9:16' ? 'rotate-0' : ''}`} />
+                    <span className="text-[10px] font-medium">{ratio.label}</span>
+                    <span className="text-[9px] text-slate-400 opacity-75">{ratio.value}</span>
+                  </button>
+                ))}
+              </div>
           </div>
 
           <div>
@@ -344,7 +412,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 text-center flex flex-col items-center gap-2">
           <span>{error}</span>
-          {(error.includes('Permission denied') || error.includes('API Key')) && window.aistudio && (
+          {(error.includes('Permission denied') || error.includes('API Key') || error.includes('not found')) && window.aistudio && (
              <button 
                 onClick={handleSelectKey}
                 className="mt-2 px-4 py-2 bg-red-600 text-white rounded-full text-sm font-medium hover:bg-red-700 flex items-center gap-2"
@@ -375,21 +443,34 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
              <div className={`grid gap-6 ${generatedImages.length === 1 ? 'grid-cols-1 max-w-lg mx-auto' : 'grid-cols-1 md:grid-cols-2'}`}>
                 {generatedImages.map((img, idx) => (
                   <div key={idx} className="group relative">
-                    <div className="aspect-square w-full bg-slate-100 rounded-2xl overflow-hidden flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
+                    {/* Image Container - Click to open Lightbox */}
+                    <div 
+                      className={`aspect-square w-full bg-slate-100 rounded-2xl overflow-hidden flex items-center justify-center shadow-sm hover:shadow-md transition-shadow cursor-zoom-in relative`}
+                      onClick={() => setLightboxImage(img.base64)}
+                    >
                         <img 
                           src={`data:image/png;base64,${img.base64}`} 
                           alt={`AI Generated ${idx + 1}`} 
                           className="w-full h-full object-cover"
                         />
-                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end justify-end p-4 opacity-0 group-hover:opacity-100">
-                           <a 
-                            href={`data:image/png;base64,${img.base64}`} 
-                            download={`ai-generated-${idx}.png`}
-                            className="bg-white text-slate-900 px-4 py-2 rounded-full font-medium shadow-lg flex items-center gap-2 hover:scale-105 transition-transform"
-                          >
-                            <Download className="w-4 h-4" />
-                            Download
-                          </a>
+                         
+                         {/* Hover Overlay */}
+                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex flex-col justify-between p-4 opacity-0 group-hover:opacity-100">
+                           <div className="self-end">
+                              <span className="bg-black/50 text-white p-2 rounded-full inline-flex">
+                                <Maximize2 className="w-4 h-4" />
+                              </span>
+                           </div>
+                           <div className="self-end" onClick={(e) => e.stopPropagation()}>
+                              <a 
+                                href={`data:image/png;base64,${img.base64}`} 
+                                download={`ai-generated-${idx}.png`}
+                                className="bg-white text-slate-900 px-4 py-2 rounded-full font-medium shadow-lg flex items-center gap-2 hover:scale-105 transition-transform"
+                              >
+                                <Download className="w-4 h-4" />
+                                Download
+                              </a>
+                           </div>
                          </div>
                     </div>
                   </div>

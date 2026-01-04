@@ -3,9 +3,9 @@ import LandingPage from './components/LandingPage';
 import Generator from './components/Generator';
 import ResultsPage from './components/ResultsPage';
 import AuthPage from './components/AuthPage';
-import History from './components/Dashboard'; // Reuse existing file for History
+import History from './components/Dashboard'; 
 import { Navigation } from './components/Navigation';
-import { WizardAnswers, PinResult, ViewState, User, GeneratedImage } from './types';
+import { WizardAnswers, PinResult, ViewState, User, GeneratedImage, ActiveTab } from './types';
 import { generatePinCopy, generatePinImage } from './services/geminiService';
 import { storageService } from './services/storageService';
 import { Loader2 } from 'lucide-react';
@@ -21,7 +21,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   // Navigation State
-  const [activeTab, setActiveTab] = useState<'images' | 'pins' | 'history'>('images');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('images');
 
   useEffect(() => {
     // Check for existing session and load data asynchronously
@@ -159,7 +159,7 @@ const App: React.FC = () => {
     setView('landing');
   };
 
-  const handleTabChange = (tab: 'images' | 'pins' | 'history') => {
+  const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
     if (tab === 'history') {
       setView('history');
@@ -211,7 +211,7 @@ const App: React.FC = () => {
                   user={user} 
                   pins={savedPins} 
                   images={savedImages}
-                  onCreateNew={(tab) => handleTabChange(tab)} 
+                  onCreateNew={(tab) => handleTabChange(tab as any)} // Cast for compatibility with dashboard
                   onLogout={handleLogout} 
                />
             )}
@@ -222,7 +222,7 @@ const App: React.FC = () => {
                   onStart={handleStart} 
                   user={user} 
                   onImageSaved={handleImageSaved}
-                  activeTab={activeTab === 'history' ? 'images' : activeTab} // Fallback
+                  activeTab={activeTab} 
                 />
               </div>
             )}

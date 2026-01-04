@@ -1,23 +1,39 @@
 import React from 'react';
 import { ArrowRight, Sparkles, FileText, Palette, Target } from 'lucide-react';
 import ImageGenerator from './ImageGenerator';
-import { User } from '../types';
+import TextOverlayTool from './TextOverlayTool';
+import QuoteEngine from './QuoteEngine';
+import { User, ActiveTab } from '../types';
 
 interface LandingPageProps {
   onStart: () => void;
   user: User | null;
   onImageSaved?: () => void;
-  activeTab: 'pins' | 'images';
+  activeTab: ActiveTab;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onStart, user, onImageSaved, activeTab }) => {
   return (
-    <div className="w-full max-w-5xl mx-auto">
-      {activeTab === 'images' ? (
+    <div className="w-full max-w-6xl mx-auto">
+      {activeTab === 'images' && (
         <div className="max-w-4xl mx-auto w-full">
           <ImageGenerator user={user} onImageSaved={onImageSaved} />
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'text-overlay' && (
+        <div className="max-w-6xl mx-auto w-full">
+          <TextOverlayTool user={user} onImageSaved={onImageSaved} />
+        </div>
+      )}
+
+      {activeTab === 'quotes' && (
+        <div className="max-w-7xl mx-auto w-full">
+          <QuoteEngine user={user} />
+        </div>
+      )}
+      
+      {activeTab === 'pins' && (
         <PinterestToolView onStart={onStart} />
       )}
     </div>
@@ -31,7 +47,7 @@ const PinterestToolView: React.FC<{ onStart: () => void }> = ({ onStart }) => (
         <p className="text-slate-500">Create SEO-optimized, high-converting pins for your content.</p>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 text-center w-full shrink-0">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 text-center w-full shrink-0 max-w-4xl mx-auto">
           <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
              <Sparkles className="w-8 h-8" />
           </div>

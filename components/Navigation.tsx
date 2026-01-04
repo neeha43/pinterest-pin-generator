@@ -1,10 +1,10 @@
 import React from 'react';
-import { History, Image as ImageIcon, Sparkles, LogOut } from 'lucide-react';
-import { User } from '../types';
+import { History, Image as ImageIcon, Sparkles, LogOut, Type, Quote } from 'lucide-react';
+import { User, ActiveTab } from '../types';
 
 interface NavigationProps {
-  activeTab: 'images' | 'pins' | 'history';
-  onTabChange: (tab: 'images' | 'pins' | 'history') => void;
+  activeTab: ActiveTab;
+  onTabChange: (tab: ActiveTab) => void;
   user: User | null;
   onLogout: () => void;
 }
@@ -35,6 +35,20 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange, 
            >
               <Sparkles className="w-5 h-5" />
               Pinterest Pins
+           </button>
+           <button 
+              onClick={() => onTabChange('text-overlay')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'text-overlay' ? 'bg-red-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+           >
+              <Type className="w-5 h-5" />
+              Text on Image
+           </button>
+           <button 
+              onClick={() => onTabChange('quotes')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'quotes' ? 'bg-red-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+           >
+              <Quote className="w-5 h-5" />
+              Quote Engine
            </button>
         </nav>
 
@@ -76,6 +90,9 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange, 
            <div className="flex gap-4">
               <button onClick={() => onTabChange('images')} className={activeTab === 'images' ? 'text-red-500' : 'text-slate-400'}>
                  <ImageIcon className="w-6 h-6" />
+              </button>
+              <button onClick={() => onTabChange('quotes')} className={activeTab === 'quotes' ? 'text-red-500' : 'text-slate-400'}>
+                 <Quote className="w-6 h-6" />
               </button>
               <button onClick={() => onTabChange('pins')} className={activeTab === 'pins' ? 'text-red-500' : 'text-slate-400'}>
                  <Sparkles className="w-6 h-6" />

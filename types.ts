@@ -54,6 +54,9 @@ export interface User {
 
 export type ViewState = 'auth' | 'landing' | 'generator' | 'results' | 'history';
 
+// Updated ActiveTab to include text-overlay and quotes
+export type ActiveTab = 'images' | 'pins' | 'text-overlay' | 'history' | 'quotes';
+
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
