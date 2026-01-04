@@ -36,16 +36,20 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange, 
               <Sparkles className="w-5 h-5" />
               Pinterest Pins
            </button>
-           {user && (
-              <button 
+        </nav>
+
+        {/* History moved to bottom */}
+        {user && (
+          <div className="px-4 pb-2">
+             <button 
                 onClick={() => onTabChange('history')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'history' ? 'bg-red-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
               >
                   <History className="w-5 h-5" />
                   History
               </button>
-           )}
-        </nav>
+          </div>
+        )}
 
         <div className="p-4 border-t border-slate-800">
            {user && (

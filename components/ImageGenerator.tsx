@@ -94,6 +94,13 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
       console.error(err);
       if (err.message && (err.message.includes('403') || err.message.includes('PERMISSION_DENIED'))) {
         setError("Permission denied. The selected model requires a paid API key or appropriate permissions.");
+      } else if (err.message && err.message.includes('Requested entity was not found')) {
+        setError("API Key issue. Please select your key again.");
+        if (window.aistudio) {
+           try {
+             await window.aistudio.openSelectKey();
+           } catch (e) { console.error(e); }
+        }
       } else {
         setError("An error occurred while generating the image.");
       }
@@ -192,7 +199,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ user, onImageSaved }) =
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 text-center flex flex-col items-center gap-2">
           <span>{error}</span>
-          {error.includes('Permission denied') && window.aistudio && (
+          {(error.includes('Permission denied') || error.includes('API Key')) && window.aistudio && (
              <button 
                 onClick={handleSelectKey}
                 className="mt-2 px-4 py-2 bg-red-600 text-white rounded-full text-sm font-medium hover:bg-red-700 flex items-center gap-2"
