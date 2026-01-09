@@ -1,8 +1,10 @@
+
 import React from 'react';
 import { ArrowRight, Sparkles, FileText, Palette, Target } from 'lucide-react';
 import ImageGenerator from './ImageGenerator';
 import TextOverlayTool from './TextOverlayTool';
 import QuoteEngine from './QuoteEngine';
+import VideoAlchemist from './VideoAlchemist';
 import { User, ActiveTab } from '../types';
 
 interface LandingPageProps {
@@ -30,6 +32,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart, user, onImageSaved, 
       {activeTab === 'quotes' && (
         <div className="max-w-7xl mx-auto w-full">
           <QuoteEngine user={user} />
+        </div>
+      )}
+
+      {activeTab === 'video-alchemist' && (
+        <div className="max-w-7xl mx-auto w-full">
+          <VideoAlchemist user={user} />
         </div>
       )}
       

@@ -1,3 +1,4 @@
+
 export interface AudienceProfile {
   age: string;
   gender: string;
@@ -52,10 +53,26 @@ export interface User {
   name: string;
 }
 
+export interface VideoAnalysisResult {
+  music: {
+    mood: string;
+    genre: string;
+    tempo: string;
+    searchQuery: string;
+    reasoning: string;
+  };
+  social: {
+    title: string;
+    caption: string;
+    hashtags: string[];
+  };
+  script: string;
+}
+
 export type ViewState = 'auth' | 'landing' | 'generator' | 'results' | 'history';
 
-// Updated ActiveTab to include text-overlay and quotes
-export type ActiveTab = 'images' | 'pins' | 'text-overlay' | 'history' | 'quotes';
+// Updated ActiveTab to include video-alchemist
+export type ActiveTab = 'images' | 'pins' | 'text-overlay' | 'history' | 'quotes' | 'video-alchemist';
 
 declare global {
   interface AIStudio {
